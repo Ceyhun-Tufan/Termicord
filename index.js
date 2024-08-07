@@ -89,7 +89,7 @@ const listBox2 = blessed.list({
   },
   keys: true, // Enable keyboard interactions
   vi: true, // Use vi-style key bindings
-  hidden:true
+  hidden: true
 });
 
 screen.append(messageBox);
@@ -126,34 +126,26 @@ const messageHandler = new OldMessageHandler();
 const current = new Currently();
 
 client.on('ready', async () => {
-    // Get guilds and update listBox items
-    let xx = 0;
-    current.guildHolder = client.guilds.cache.map(guild => ({
-        name: guild.name,
-        id: guild.id,
-        index:xx++
-    }));
-  //{ name: 'Guild 3', id: '345678901234567890', index: 3 },
-    
-    console.log(current.guildHolder)
+  // Get guilds and update listBox items
+  let xx = 0;
+  current.guildHolder = client.guilds.cache.map(guild => ({ //{ name: 'Guild 3', id: '345678901234567890', index: 3 }
+    name: guild.name,
+    id: guild.id,
+    index: xx++
+  }));
 
-    // TODO : UNUTMA 
-    //console.log(current.guildHolder)
-    //console.log(current.guildHolder.find(guild => guild.index === 1))
-  
-    var oof = client.guilds.cache.map(guild => guild.name); // Guild names
+  //console.log(current.guildHolder)
 
+  var oof = client.guilds.cache.map(guild => guild.name); // Guild names
+  listBox.setItems(oof);
 
+  var foo = "";
+  oof.forEach((name, index) => {
+    foo += `\n{bold}${index + 1}- ${name}{/bold}`; // Changed index to be 1-based
+  });
+  current.allGuilds = foo;
 
-    listBox.setItems(oof);
-
-    var foo = "";
-    oof.forEach((name, index) => {
-      foo += `\n{bold}${index + 1}- ${name}{/bold}`; // Changed index to be 1-based
-    });
-    current.allGuilds = foo;
-
-    console.log("Ready");
+  console.log("Ready");
 });
 
 client.on("messageCreate", async (message) => {
@@ -166,23 +158,20 @@ client.on("messageCreate", async (message) => {
     setImmediate(() => {
       screen.render();
     });
-  } 
+  }
 });
 
 inputBox.on('submit', (value) => {
-  if (value === "-servers" && current.mode === 0) {
-    current.mode = 1;
+  if (value === "-servers") {
     messageHandler.oldMessages = messageBox.getContent();
-    messageBox.setContent(`\n{bold}${current.allGuilds}{/bold}\n`);
     inputBox.clearValue();
     listBox.show();
     listBox.focus();
     screen.render();
     return;
   }
-  
-  if (value === "-chat" && current.mode === 1) {
-    current.mode = 0;
+
+  if (value === "-chat") {
     messageBox.setContent(messageHandler.oldMessages || "" + messageHandler.messagesWhileBusy);
     inputBox.clearValue();
     inputBox.focus();
@@ -191,7 +180,7 @@ inputBox.on('submit', (value) => {
   }
 
   const channel = client.channels.cache.get(current.chatId);
-  if (channel && current.mode === 0) {
+  if (channel) {
     channel.send(value)
       .then(() => {
         inputBox.clearValue();
@@ -204,42 +193,49 @@ inputBox.on('submit', (value) => {
   }
 });
 
-let isHandlingSelect = false;
-listBox.on('select', async(item, index) => {
+
+listBox.on('select', async (_, index) => {
   var channels = []
-  try{
-    current.guildId = current.guildHolder.find(guild => guild.index === index).id
+  try {
+    current.guildId = current.guildHolder.find(guild => guild.index === index + 1).id
     var cguild = await client.guilds.fetch(current.guildId);
-    channels = cguild.channels.cache
-    .map(channel =>channel.name)
-    //.filter(channel => channel.type === "text")
+    channels = cguild.channels.cache.map(channel => channel.name)//.filter(channel => channel.type === "text")
+    current.channelHolder = cguild.channels.cache.map(channel => ({name: channel.name,id:channel.id}))//.filter(channel => channel.type === "text"
 
-    console.log(channels)
-  }catch (error){}
+  } catch (error) { } // something is happening here help
 
+  listBox.clearItems();
   listBox.hide();
   listBox2.setItems(channels);
   listBox2.show();
   listBox2.focus();
   screen.render();
-  
+
 });
 
 listBox2.on('select', (item) => {
-  const selectedChannelName = item.getContent();
-  current.chatId = current.channelHolder.find(channel => channel.name === selectedChannelName)?.id;
+  var channel = ""
+  const channels = current.channelHolder
+  const lastChatId = current.chatId
+  try {
+    channel = channels.find(chan => chan.name == item.getContent())
+    current.chatId = channel.id 
+
+  } catch (error) {}
+
+  if (lastChatId === current.chatId){console.log("Kanal değiştirmediniz")}
 
   if (current.chatId) {
-    listBox.hide(); // Hide the first listbox
-    listBox2.hide(); // Hide the second listbox
+    listBox2.clearItems();
+    listBox2.hide();
     inputBox.focus();
     screen.render();
   }
 });
 
-screen.key(['up', 'down', 'enter'], (ch, key) => {
+screen.key(['up', 'down', 'enter', 'escape'], (ch, key) => {
   const focused = screen.focused;
-  
+
   switch (key.name) {
     case 'up':
       if (focused === listBox || focused === listBox2) {
@@ -259,11 +255,9 @@ screen.key(['up', 'down', 'enter'], (ch, key) => {
         screen.render();
       }
       break;
+    case 'escape':
+      return process.exit(0)
   }
-});
-
-screen.key(['escape'], (ch, key) => {
-  return process.exit(0);
 });
 
 client.login(TOKEN);
